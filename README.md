@@ -25,16 +25,42 @@
 
 ## نصب
 
+**روش پیشنهادی (نصب یک‌دستوری):**
+
+</div>
+
+```bash
+git clone https://github.com/Aknuun/pasarguard-usage-guardian.git
+cd pasarguard-usage-guardian
+sudo bash install.sh
+```
+
+<div dir="rtl">
+
+اسکریپت نصب اول **توکن ربات** و **آیدی عددی ادمین** را می‌پرسد، اعتبار توکن را چک می‌کند، وابستگی‌ها را نصب و سرویس + کرون را می‌سازد. سپس کافی است در تلگرام به ربات `/start` بزنی: ربات **آدرس پنل، یوزرنیم و پسورد ادمین پنل Pasarguard** را می‌پرسد، ورود را تست می‌کند و ذخیره می‌کند (پسورد بعد از خواندن پاک می‌شود).
+
+**نصب دستی:**
+
 </div>
 
 ```bash
 git clone https://github.com/Aknuun/pasarguard-usage-guardian.git
 cd pasarguard-usage-guardian
 python3 -m pip install -r requirements.txt
-cp .env.example .env
-# مقادیر .env را پر کنید (DB + توکن ربات + chat id)
+cp .env.example .env      # فقط PG_BOT_TOKEN و PG_CHAT_ID لازم است
 cp config.example.json config.json   # اختیاری؛ مقادیر پیش‌فرض داخل کد هستند
+# سپس PAP: monitor.py hourly (کرون) و settings_bot.py (سرویس)
 ```
+
+<div dir="rtl">
+
+منبع داده به‌صورت خودکار انتخاب می‌شود:
+- اگر `panel.json` (ثبت‌شده از ربات) موجود باشد → از **API پنل** می‌خواند.
+- وگرنه اگر رمز دیتابیس در `.env` باشد → مستقیم از **دیتابیس** می‌خواند.
+
+برای تغییر/ثبت مجدد پنل: دستور `/panel` در ربات.
+
+</div>
 
 <div dir="rtl">
 

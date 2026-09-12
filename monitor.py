@@ -166,7 +166,88 @@ def release_lock():
         pass
 
 
+def panel_file():
+    return os.path.join(BASE_DIR, "panel.json")
+
+
+def load_panel():
+    """Panel credentials saved from the Telegram setup wizard, if any."""
+    path = panel_file()
+    if os.path.exists(path):
+        try:
+            with open(path, encoding="utf-8") as f:
+                d = json.load(f)
+            if d.get("url") and d.get("username") and d.get("password"):
+                return d
+        except (OSError, json.JSONDecodeError):
+            pass
+    return None
+
+
+def panel_login(url, username, password):
+    """Login to Pasarguard and return an access token (or None)."""
+    base = str(url).rstrip("/")
+    try:
+        r = requests.post(
+            f"{base}/api/admin/token",
+            data={"username": username, "password": password},
+            timeout=30,
+        )
+    except requests.RequestException:
+        return None
+    if not r.ok:
+        return None
+    try:
+        return r.json().get("access_token")
+    except ValueError:
+        return None
+
+
+def fetch_users_api(panel):
+    base = str(panel["url"]).rstrip("/")
+    token = panel_login(base, panel["username"], panel["password"])
+    if not token:
+        raise RuntimeError("ورود به پنل ناموفق بود (یوزر/پس یا آدرس پنل را بررسی کنید)")
+    headers = {"Authorization": f"Bearer {token}"}
+    out = {}
+    limit = 500
+    offset = 0
+    while True:
+        r = requests.get(
+            f"{base}/api/users?limit={limit}&offset={offset}",
+            headers=headers,
+            timeout=60,
+        )
+        r.raise_for_status()
+        data = r.json()
+        arr = data.get("users") if isinstance(data, dict) else data
+        arr = arr or []
+        for u in arr:
+            uid = str(u.get("id"))
+            adm = u.get("admin")
+            adm_name = adm.get("username") if isinstance(adm, dict) else (adm or "-")
+            out[uid] = {
+                "username": u.get("username"),
+                "used": int(u.get("used_traffic") or 0),
+                "admin": adm_name or "-",
+            }
+        if len(arr) < limit:
+            break
+        offset += limit
+        if offset > 500000:
+            break
+    return out
+
+
 def fetch_users():
+    panel = load_panel()
+    if panel:
+        return fetch_users_api(panel)
+    if not DB_CONFIG.get("password"):
+        raise RuntimeError(
+            "هیچ منبعی تنظیم نشده؛ از ربات /start بزنید و یوزر/پس پنل را ثبت کنید "
+            "(یا PG_DB_PASSWORD را در .env بگذارید)"
+        )
     conn = pymysql.connect(**DB_CONFIG)
     try:
         with conn.cursor() as cur:

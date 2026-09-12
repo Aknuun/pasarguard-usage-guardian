@@ -16,3 +16,6 @@ __pycache__/
 *.pyo
 .venv/
 venv/
+
+# panel connection saved by the setup wizard
+panel.json

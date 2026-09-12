@@ -49,6 +49,75 @@ META = [
 # chat_id -> setting key currently awaiting a numeric reply
 PENDING = {}
 
+# First-run panel setup wizard state: chat_id -> {"step", "url", "username"}
+SETUP = {}
+PANEL_FILE = os.path.join(monitor.BASE_DIR, "panel.json")
+
+
+def panel_configured():
+    return monitor.load_panel() is not None
+
+
+def save_panel(d):
+    tmp = PANEL_FILE + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(d, f, ensure_ascii=False, indent=2)
+    os.replace(tmp, PANEL_FILE)
+
+
+def start_setup(cid):
+    SETUP[cid] = {"step": "url"}
+    api(
+        "sendMessage",
+        chat_id=cid,
+        text="🔧 راه‌اندازی اولیه\n\nآدرس پنل Pasarguard را بفرستید (مثلاً https://panel.example.com):",
+        parse_mode="HTML",
+    )
+
+
+def handle_setup(cid, text, message):
+    if text.startswith("/"):
+        start_setup(cid)
+        return
+    st = SETUP.get(cid)
+    if not st:
+        start_setup(cid)
+        return
+    if st["step"] == "url":
+        url = text if text.startswith("http") else "https://" + text
+        st["url"] = url.rstrip("/")
+        st["step"] = "user"
+        api("sendMessage", chat_id=cid, text="👤 یوزرنیم ادمین پنل:", parse_mode="HTML")
+        return
+    if st["step"] == "user":
+        st["username"] = text
+        st["step"] = "pass"
+        api(
+            "sendMessage",
+            chat_id=cid,
+            text="🔑 پسورد ادمین پنل را بفرستید (بعد از خواندن، پیام پاک می‌شود):",
+            parse_mode="HTML",
+        )
+        return
+    if st["step"] == "pass":
+        api("deleteMessage", chat_id=cid, message_id=message.get("message_id"))
+        st["password"] = text
+        tok = monitor.panel_login(st["url"], st["username"], st["password"])
+        if not tok:
+            api(
+                "sendMessage",
+                chat_id=cid,
+                text="❌ ورود ناموفق بود. یوزرنیم را دوباره بفرستید:",
+                parse_mode="HTML",
+            )
+            st["step"] = "user"
+            return
+        save_panel({"url": st["url"], "username": st["username"], "password": st["password"]})
+        SETUP.pop(cid, None)
+        api("sendMessage", chat_id=cid, text="✅ پنل Pasarguard با موفقیت ثبت شد.", parse_mode="HTML")
+        send_settings(cid)
+        return
+
 
 def log(msg):
     line = f"{datetime.now(monitor.IRAN_TZ).strftime('%Y-%m-%d %H:%M:%S')} {msg}"
@@ -231,6 +300,14 @@ def handle_message(message):
         return
     text = (message.get("text") or "").strip()
 
+    if text == "/panel":
+        SETUP.pop(cid, None)
+        start_setup(cid)
+        return
+    if not panel_configured():
+        handle_setup(cid, text, message)
+        return
+
     if text in ("/cancel",):
         if PENDING.pop(cid, None):
             api("sendMessage", chat_id=cid, text="✅ لغو شد.", parse_mode="HTML")
@@ -262,6 +339,7 @@ def set_commands():
     cmds = [
         {"command": "settings", "description": "تغییر تنظیمات و آستانه‌های مانیتور"},
         {"command": "status", "description": "وضعیت فعلی مانیتور"},
+        {"command": "panel", "description": "ثبت/تغییر اتصال پنل Pasarguard"},
         {"command": "help", "description": "راهنما"},
     ]
     api("setMyCommands", commands=json.dumps(cmds))
