@@ -1,0 +1,11 @@
+{
+  "ABS_GB": 11.0,
+  "MULT": 6,
+  "FLOOR_GB": 5.0,
+  "WARMUP_HOURS": 24,
+  "MIN_DAILY_GB": 5.0,
+  "DEL_MIN_24H_GB": 2,
+  "REPEAT_THRESHOLD": 3,
+  "TOP_DAILY": 25,
+  "WEEKLY_WEEKDAY": 5
+}

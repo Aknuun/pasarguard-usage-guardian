@@ -1,0 +1,18 @@
+# secrets & runtime data
+.env
+config.json
+state.json
+history.csv
+history.db
+history.db-*
+monitor.log
+monitor.lock
+cron.log
+*.log
+
+# python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
